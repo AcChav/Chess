@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="chess.ico" type="image/x-icon">
+
+    <title>Chess Board</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+            gap: 20px;
+            /* Adds spacing between the button and the board */
+        }
+
+        button {
+            align-self: center;
+            /* Centers the button horizontally */
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .chess-board {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            border: 2px solid black;
+        }
+
+        .chess-board .tile {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .chess-board .tile:nth-child(odd) {
+            background-color: #fff;
+        }
+
+        .chess-board .tile:nth-child(even) {
+            background-color: #00A300;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="restartButton" onclick="restartGame()">Restart Game?</button>
+    <div class="chess-board" id="chessBoard"></div>
+
+    <script>
+        const chessBoard = document.getElementById('chessBoard');
+
+        // Chess piece symbols
+        const pieces = {
+            white: {
+                king: '\u2654',
+                queen: '\u2655',
+                rook: '\u2656',
+                bishop: '\u2657',
+                knight: '\u2658',
+                pawn: '\u2659'
+            },
+            black: {
+                king: '\u265A',
+                queen: '\u265B',
+                rook: '\u265C',
+                bishop: '\u265D',
+                knight: '\u265E',
+                pawn: '\u265F'
+            }
+        };
+
+        // Turn tracking
+        let isWhiteTurn = true;
+
+        // Generate the chessboard dynamically
+        const tiles = [];
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const tile = document.createElement('div');
+                tile.classList.add('tile');
+                tile.dataset.row = row;
+                tile.dataset.col = col;
+
+                // Alternate colors
+                if ((row + col) % 2 === 0) {
+                    tile.style.backgroundColor = '#fff';
+                } else {
+                    tile.style.backgroundColor = '#00A300';
+                }
+
+                // Add pieces to the board
+                if (row === 0) {
+                    // Black major pieces
+                    const order = [pieces.black.rook, pieces.black.knight, pieces.black.bishop, pieces.black.queen, pieces.black.king, pieces.black.bishop, pieces.black.knight, pieces.black.rook];
+                    tile.textContent = order[col];
+                } else if (row === 1) {
+                    // Black pawns
+                    tile.textContent = pieces.black.pawn;
+                } else if (row === 6) {
+                    // White pawns
+                    tile.textContent = pieces.white.pawn;
+                } else if (row === 7) {
+                    // White major pieces
+                    const order = [pieces.white.rook, pieces.white.knight, pieces.white.bishop, pieces.white.queen, pieces.white.king, pieces.white.bishop, pieces.white.knight, pieces.white.rook];
+                    tile.textContent = order[col];
+                }
+
+                tile.addEventListener('click', () => handleTileClick(tile));
+                tiles.push(tile);
+                chessBoard.appendChild(tile);
+            }
+        }
+
+        let selectedTile = null;
+
+        function handleTileClick(tile) {
+            if (selectedTile) {
+                const piece = selectedTile.textContent;
+                const fromRow = parseInt(selectedTile.dataset.row);
+                const fromCol = parseInt(selectedTile.dataset.col);
+                const toRow = parseInt(tile.dataset.row);
+                const toCol = parseInt(tile.dataset.col);
+
+                if (isTurnValid(piece) && !isSameSide(selectedTile.textContent, tile.textContent)) {
+                    if (piece === pieces.white.pawn || piece === pieces.black.pawn) {
+                        if (isValidPawnMove(piece, fromRow, fromCol, toRow, toCol)) {
+                            movePiece(selectedTile, tile);
+                            checkKingStatus();
+                            switchTurn();
+                        }
+                    } else if (piece === pieces.white.knight || piece === pieces.black.knight) {
+                        if (isValidKnightMove(fromRow, fromCol, toRow, toCol)) {
+                            movePiece(selectedTile, tile);
+                            checkKingStatus();
+                            switchTurn();
+                        }
+                    } else if (piece === pieces.white.rook || piece === pieces.black.rook) {
+                        if (isValidRookMove(fromRow, fromCol, toRow, toCol)) {
+                            movePiece(selectedTile, tile);
+                            checkKingStatus();
+                            switchTurn();
+                        }
+                    } else if (piece === pieces.white.bishop || piece === pieces.black.bishop) {
+                        if (isValidBishopMove(fromRow, fromCol, toRow, toCol)) {
+                            movePiece(selectedTile, tile);
+                            checkKingStatus();
+                            switchTurn();
+                        }
+                    } else if (piece === pieces.white.queen || piece === pieces.black.queen) {
+                        if (isValidQueenMove(fromRow, fromCol, toRow, toCol)) {
+                            movePiece(selectedTile, tile);
+                            checkKingStatus();
+                            switchTurn();
+                        }
+                    } else if (piece === pieces.white.king || piece === pieces.black.king) {
+                        if (isValidKingMove(fromRow, fromCol, toRow, toCol)) {
+                            movePiece(selectedTile, tile);
+                            checkKingStatus();
+                            switchTurn();
+                        }
+                    }
+                }
+
+                selectedTile = null;
+            } else if (tile.textContent.trim() !== '') {
+                selectedTile = tile;
+            }
+        }
+
+        function checkKingStatus() {
+            const blackKingInCheck = isKingInCheck(pieces.black.king);
+            const whiteKingInCheck = isKingInCheck(pieces.white.king);
+
+            if (blackKingInCheck) {
+                alert('Black king is in check!');
+            } else if (whiteKingInCheck) {
+                alert('White king is in check!');
+            }
+        }
+
+        function isKingInCheck(king) {
+            const kingPosition = tiles.find(tile => tile.textContent === king);
+            if (!kingPosition) return false;
+            const kingRow = parseInt(kingPosition.dataset.row);
+            const kingCol = parseInt(kingPosition.dataset.col);
+
+            for (const tile of tiles) {
+                const piece = tile.textContent;
+                const fromRow = parseInt(tile.dataset.row);
+                const fromCol = parseInt(tile.dataset.col);
+                if (isSameSide(piece, king)) continue;
+
+                if (
+                    piece === pieces.white.pawn || piece === pieces.black.pawn ? isValidPawnMove(piece, fromRow, fromCol, kingRow, kingCol) :
+                        piece === pieces.white.knight || piece === pieces.black.knight ? isValidKnightMove(fromRow, fromCol, kingRow, kingCol) :
+                            piece === pieces.white.rook || piece === pieces.black.rook ? isValidRookMove(fromRow, fromCol, kingRow, kingCol) :
+                                piece === pieces.white.bishop || piece === pieces.black.bishop ? isValidBishopMove(fromRow, fromCol, kingRow, kingCol) :
+                                    piece === pieces.white.queen || piece === pieces.black.queen ? isValidQueenMove(fromRow, fromCol, kingRow, kingCol) :
+                                        piece === pieces.white.king || piece === pieces.black.king ? isValidKingMove(fromRow, fromCol, kingRow, kingCol) :
+                                            false
+                ) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function isValidPawnMove(piece, fromRow, fromCol, toRow, toCol) {
+            const direction = piece === pieces.white.pawn ? -1 : 1;
+            const startingRow = piece === pieces.white.pawn ? 6 : 1;
+
+            // Single forward move
+            if (fromCol === toCol && toRow === fromRow + direction && tiles[toRow * 8 + toCol].textContent === '') {
+                return true;
+            }
+
+            // Double forward move from starting position
+            if (fromCol === toCol && fromRow === startingRow && toRow === fromRow + 2 * direction && tiles[(fromRow + direction) * 8 + toCol].textContent === '' && tiles[toRow * 8 + toCol].textContent === '') {
+                return true;
+            }
+
+            // Diagonal capture
+            if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && tiles[toRow * 8 + toCol].textContent.trim() !== '') {
+                return true;
+            }
+
+            return false;
+        }
+
+        function isValidKnightMove(fromRow, fromCol, toRow, toCol) {
+            const rowDiff = Math.abs(fromRow - toRow);
+            const colDiff = Math.abs(fromCol - toCol);
+
+            // Knights move in an L shape: 2 squares in one direction and 1 in the perpendicular direction
+            return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+        }
+
+        function isValidRookMove(fromRow, fromCol, toRow, toCol) {
+            if (fromRow === toRow) {
+                // Moving horizontally
+                const step = fromCol < toCol ? 1 : -1;
+                for (let col = fromCol + step; col !== toCol; col += step) {
+                    if (tiles[fromRow * 8 + col].textContent.trim() !== '') {
+                        return false;
+                    }
+                }
+                return true;
+            } else if (fromCol === toCol) {
+                // Moving vertically
+                const step = fromRow < toRow ? 1 : -1;
+                for (let row = fromRow + step; row !== toRow; row += step) {
+                    if (tiles[row * 8 + fromCol].textContent.trim() !== '') {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        function isValidBishopMove(fromRow, fromCol, toRow, toCol) {
+            const rowDiff = Math.abs(fromRow - toRow);
+            const colDiff = Math.abs(fromCol - toCol);
+
+            // Bishops move diagonally: row difference must equal column difference
+            if (rowDiff === colDiff) {
+                const rowStep = fromRow < toRow ? 1 : -1;
+                const colStep = fromCol < toCol ? 1 : -1;
+                let row = fromRow + rowStep;
+                let col = fromCol + colStep;
+
+                while (row !== toRow && col !== toCol) {
+                    if (tiles[row * 8 + col].textContent.trim() !== '') {
+                        return false;
+                    }
+                    row += rowStep;
+                    col += colStep;
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        function isValidQueenMove(fromRow, fromCol, toRow, toCol) {
+            // The queen combines the movement of a rook and a bishop
+            return isValidRookMove(fromRow, fromCol, toRow, toCol) || isValidBishopMove(fromRow, fromCol, toRow, toCol);
+        }
+
+        function isValidKingMove(fromRow, fromCol, toRow, toCol) {
+            const rowDiff = Math.abs(fromRow - toRow);
+            const colDiff = Math.abs(fromCol - toCol);
+
+            // Standard king move: one square in any direction
+            if (rowDiff <= 1 && colDiff <= 1) {
+                return true;
+            }
+
+            // Castling logic: moving two squares horizontally
+            if (rowDiff === 0 && colDiff === 2) {
+                return canCastle(fromRow, fromCol, toCol);
+            }
+
+            return false;
+        }
+
+        function canCastle(row, kingCol, targetCol) {
+            const isWhite = row === 7; // White's back row
+            const king = isWhite ? pieces.white.king : pieces.black.king;
+            const rook = isWhite ? pieces.white.rook : pieces.black.rook;
+
+            const rookCol = targetCol === 6 ? 7 : 0; // Determine which rook to use (kingside or queenside)
+
+            // Ensure king and rook are in their starting positions
+            if (
+                tiles[row * 8 + kingCol].textContent !== king ||
+                tiles[row * 8 + rookCol].textContent !== rook
+            ) {
+                return false;
+            }
+
+            // Check if the spaces between the king and rook are empty
+            const step = kingCol < rookCol ? 1 : -1;
+            for (let col = kingCol + step; col !== rookCol; col += step) {
+                if (tiles[row * 8 + col].textContent.trim() !== '') {
+                    return false;
+                }
+            }
+
+            // Check if the king is in check, passes through, or ends in check
+            for (let col = kingCol; col !== targetCol + step; col += step) {
+                if (isKingInCheck(isWhite ? pieces.white.king : pieces.black.king)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function isSameSide(piece1, piece2) {
+            if (!piece1 || !piece2) return false;
+            const isWhitePiece = Object.values(pieces.white).includes(piece1);
+            const isBlackPiece = Object.values(pieces.black).includes(piece1);
+
+            return (isWhitePiece && Object.values(pieces.white).includes(piece2)) ||
+                (isBlackPiece && Object.values(pieces.black).includes(piece2));
+        }
+
+        function isTurnValid(piece) {
+            const isWhitePiece = Object.values(pieces.white).includes(piece);
+            return (isWhiteTurn && isWhitePiece) || (!isWhiteTurn && !isWhitePiece);
+        }
+
+        function movePiece(fromTile, toTile) {
+            const piece = fromTile.textContent;
+
+            // Handle castling
+            if (piece === pieces.white.king || piece === pieces.black.king) {
+                const fromRow = parseInt(fromTile.dataset.row);
+                const fromCol = parseInt(fromTile.dataset.col);
+                const toCol = parseInt(toTile.dataset.col);
+
+                if (Math.abs(fromCol - toCol) === 2) {
+                    // Castling move
+                    const rookCol = toCol === 6 ? 7 : 0; // Determine which rook to move
+                    const newRookCol = toCol === 6 ? 5 : 3; // Determine new rook position
+                    const rookTile = tiles[fromRow * 8 + rookCol];
+                    const newRookTile = tiles[fromRow * 8 + newRookCol];
+                    newRookTile.textContent = rookTile.textContent;
+                    rookTile.textContent = '';
+                }
+            }
+
+            toTile.textContent = fromTile.textContent;
+            fromTile.textContent = '';
+        }
+
+        function switchTurn() {
+            isWhiteTurn = !isWhiteTurn;
+        }
+
+        function restartGame() {
+            location.reload(); // Refreshes the page
+        }
+
+    </script>
+</body>
+
+</html>
